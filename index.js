@@ -18,25 +18,38 @@ class MyApp {
         this.width = window.innerWidth;
         this.height = window.innerHeight;
 
+        // scene
         this.scene = new THREE.Scene();
+
+        // renderer
         this.renderer = new THREE.WebGLRenderer();
         this.renderer.setSize(this.width, this.height);
         this.renderer.setClearColor(0x000000);
         document.body.appendChild(this.renderer.domElement);
-        const halfWidth = this.width / 2;
-        const halfHeight = this.height / 2;
-        this.camera = new THREE.OrthographicCamera(-halfWidth, halfWidth, -halfHeight, halfHeight, -10000, 10000);
 
+        // display shader
         this.displayShader = new THREE.ShaderMaterial({
             depthTest: false,
-            side: THREE.DoubleSide,
+            depthWrite: false,
+            side: THREE.FrontSide,
             // uniforms: {
             // },
             vertexShader: this.displayVertexShader,
             fragmentShader: this.displayFragmentShader,
         });
-        this.displayPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.width, this.height), this.displayShader);
+
+        // plane to show the shader's result (at [0,0,0], normal [0,0,1])
+        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.width, this.height);
+        const displayPlaneMaterial = this.displayShader;
+        this.displayPlane = new THREE.Mesh(displayPlaneGeometry, displayPlaneMaterial);
+        // plane starts with normal at [0,0,-1], so we want to rotate it 180 deg to face the camera
+        this.displayPlane.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), Math.PI);
         this.scene.add(this.displayPlane);
+
+        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
+        const halfWidth = this.width / 2;
+        const halfHeight = this.height / 2;
+        this.camera = new THREE.OrthographicCamera(-halfWidth, halfWidth, -halfHeight, halfHeight, 0);
 
         // ToDo plug in initializeBackgroundStuff()
 
