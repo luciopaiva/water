@@ -32,8 +32,9 @@ class MyApp {
             depthTest: false,
             depthWrite: false,
             side: THREE.FrontSide,
-            // uniforms: {
-            // },
+            uniforms: {
+                sampleTexture: { type: "t", value: this.makeSampleSquareTexture() }  // ToDo is `type` really used?
+            },
             vertexShader: this.displayVertexShader,
             fragmentShader: this.displayFragmentShader,
         });
@@ -80,6 +81,41 @@ class MyApp {
         this.backgroundPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.width, this.height), this.simulationShader);
         this.backgroundPlane.position.z = -100;
         this.backgroundScene.add(this.backgroundPlane);
+    }
+
+    makeSampleSquareTexture() {
+        const squareSide = 32;
+        const size = squareSide * squareSide;  // this.width * this.width;
+        const data = new Uint8Array(3 * size);
+
+        const randomLevel = () => Math.floor(Math.random() * 256);
+
+        for (let j = 0; j < squareSide; j++) {
+            for (let i = 0; i < squareSide; i++) {
+                const pos = j * squareSide + i;
+                const stride = pos * 3;
+
+                if (i === 0 || j === 0) {  // first column/row will be white
+                    data[stride] = 255;
+                    data[stride + 1] = 255;
+                    data[stride + 2] = 255;
+                } else if (i === squareSide - 1 || j === squareSide - 1) {  // last column/row will be black
+                    data[stride] = data[stride + 1] = data[stride + 2] = 0;
+                } else {  // random colors for everybody else
+                    data[stride] = randomLevel();
+                    data[stride + 1] = randomLevel();
+                    data[stride + 2] = randomLevel();
+                }
+            }
+        }
+
+        const texture = new THREE.DataTexture(data, squareSide, squareSide, THREE.RGBFormat);
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.needsUpdate = true;
+        return texture;
     }
 
     static makeFrameBuffer() {

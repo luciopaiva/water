@@ -1,18 +1,11 @@
 
+varying vec2 _uv;
+varying vec3 _position;
+
 void main() {
+    // pass them to the fragment shader
+    _uv = uv;
+    _position = position;
+
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
-
-//uniform float uTime;
-//varying vec2 vUv;
-//uniform sampler2D tDiffuse;
-//
-//void main() {
-//
-//    vUv = uv;
-//
-//    vec4 tex = texture2D(tDiffuse, vUv);
-//
-//    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-//
-//}
