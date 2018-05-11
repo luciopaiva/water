@@ -15,15 +15,15 @@ class MyApp {
         this.displayVertexShader = displayVertexShader;
         this.displayFragmentShader = displayFragmentShader;
 
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
+        // keep it a power of two
+        this.planeWidth = this.planeHeight = 2048;
 
         // scene
         this.scene = new THREE.Scene();
 
         // renderer
         this.renderer = new THREE.WebGLRenderer();
-        this.renderer.setSize(this.width, this.height);
+        this.renderer.setSize(this.planeWidth, this.planeHeight);
         this.renderer.setClearColor(0x000000);
         document.body.appendChild(this.renderer.domElement);
 
@@ -40,17 +40,20 @@ class MyApp {
         });
 
         // plane to show the shader's result (at [0,0,0], normal [0,0,1])
-        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.width, this.height);
+        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight);
         const displayPlaneMaterial = this.displayShader;
         this.displayPlane = new THREE.Mesh(displayPlaneGeometry, displayPlaneMaterial);
-        // plane starts with normal at [0,0,-1], so we want to rotate it 180 deg to face the camera
-        this.displayPlane.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), Math.PI);
+        // plane starts with normal at [0,0,-1], so we want to rotate it 180 deg in the Y axis to face the camera
+        this.displayPlane.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI);
         this.scene.add(this.displayPlane);
 
         // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
-        const halfWidth = this.width / 2;
-        const halfHeight = this.height / 2;
-        this.camera = new THREE.OrthographicCamera(-halfWidth, halfWidth, -halfHeight, halfHeight, 0);
+        this.windowWidth = window.innerWidth;
+        this.windowHeight = window.innerHeight;
+        const halfWidth = this.windowWidth / 2;
+        const halfHeight = this.windowHeight / 2;
+        const slack = 0;  // ToDo remove this variable
+        this.camera = new THREE.OrthographicCamera(-halfWidth -slack, halfWidth +slack, -halfHeight -slack, halfHeight +slack, 0);
 
         // ToDo plug in initializeBackgroundStuff()
 
@@ -78,14 +81,14 @@ class MyApp {
             fragmentShader: fragmentShader,
         });
 
-        this.backgroundPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.width, this.height), this.simulationShader);
+        this.backgroundPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight), this.simulationShader);
         this.backgroundPlane.position.z = -100;
         this.backgroundScene.add(this.backgroundPlane);
     }
 
     makeSampleSquareTexture() {
-        const squareSide = 32;
-        const size = squareSide * squareSide;  // this.width * this.width;
+        const squareSide = this.planeWidth;
+        const size = squareSide * squareSide;
         const data = new Uint8Array(3 * size);
 
         const randomLevel = () => Math.floor(Math.random() * 256);
@@ -119,7 +122,7 @@ class MyApp {
     }
 
     static makeFrameBuffer() {
-        return new THREE.WebGLRenderer(this.width, this.height, {
+        return new THREE.WebGLRenderer(this.planeWidth, this.planeHeight, {
             minFilter: THREE.NearestFilter,  // so pixels appear sharp
             magFilter: THREE.NearestFilter,
             depthBuffer: false,  // turn it off; not needed
