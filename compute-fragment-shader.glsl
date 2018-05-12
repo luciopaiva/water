@@ -1,5 +1,6 @@
 
 uniform sampler2D sampleTexture;
+uniform float cellSize;
 varying vec2 uvCoords;
 
 bool isWater(vec4 point) {
@@ -11,11 +12,9 @@ bool isEmpty(vec4 point) {
 }
 
 void main() {
-    // ToDo receive cellWidth instead of calculating for every fragment
-    float cellWidth = 1. / 2048.;
     vec4 me = texture2D(sampleTexture, uvCoords.xy);
-    vec4 below = texture2D(sampleTexture, vec2(uvCoords.x, uvCoords.y - cellWidth));
-    vec4 above = texture2D(sampleTexture, vec2(uvCoords.x, uvCoords.y + cellWidth));
+    vec4 below = texture2D(sampleTexture, vec2(uvCoords.x, uvCoords.y - cellSize));
+    vec4 above = texture2D(sampleTexture, vec2(uvCoords.x, uvCoords.y + cellSize));
 
     if (isWater(me) && isEmpty(below)) {
         me = vec4(0.0, 0.0, 0.0, 1.0);

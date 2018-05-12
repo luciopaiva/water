@@ -46,6 +46,7 @@ class MyApp {
             depthWrite: false,
             side: THREE.FrontSide,
             uniforms: {
+                cellSize: { value: 1 / this.planeSize },
                 sampleTexture: { value: this.scenarioTexture }
             },
             vertexShader: this.computeVertexShader,
