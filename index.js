@@ -15,17 +15,23 @@ class MyApp {
         this.displayVertexShader = displayVertexShader;
         this.displayFragmentShader = displayFragmentShader;
 
-        // keep it a power of two
+        // keep it a power of two and greater than the screen's greatest dimension so the plane fills the entire screen
+        // do not grow it too much, though, since it will put more burden in the compute shader stage
         this.planeWidth = this.planeHeight = 2048;
+
+        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
+        this.windowWidth = window.innerWidth;
+        this.windowHeight = window.innerHeight;
+        const halfWidth = this.windowWidth / 2;
+        const halfHeight = this.windowHeight / 2;
+        const scalingFactor = 1;  // may want to increase this when debugging
+        this.camera = new THREE.OrthographicCamera(-halfWidth * scalingFactor, halfWidth * scalingFactor,
+            halfHeight * scalingFactor, -halfHeight * scalingFactor);
+        // move back a bit to see the plane
+        this.camera.position.z = 1;
 
         // scene
         this.scene = new THREE.Scene();
-
-        // renderer
-        this.renderer = new THREE.WebGLRenderer();
-        this.renderer.setSize(this.planeWidth, this.planeHeight);
-        this.renderer.setClearColor(0x000000);
-        document.body.appendChild(this.renderer.domElement);
 
         // display shader
         this.displayShader = new THREE.ShaderMaterial({
@@ -33,7 +39,7 @@ class MyApp {
             depthWrite: false,
             side: THREE.FrontSide,
             uniforms: {
-                sampleTexture: { type: "t", value: this.makeSampleSquareTexture() }  // ToDo is `type` really used?
+                sampleTexture: { type: "t", value: MyApp.loadTexture() }  // ToDo is `type` really needed?
             },
             vertexShader: this.displayVertexShader,
             fragmentShader: this.displayFragmentShader,
@@ -43,19 +49,17 @@ class MyApp {
         const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight);
         const displayPlaneMaterial = this.displayShader;
         this.displayPlane = new THREE.Mesh(displayPlaneGeometry, displayPlaneMaterial);
-        // plane starts with normal at [0,0,-1], so we want to rotate it 180 deg in the Y axis to face the camera
-        this.displayPlane.rotateOnAxis(new THREE.Vector3(0, 1, 0), Math.PI);
+        // this.displayPlane = new THREE.Mesh(displayPlaneGeometry, new THREE.MeshBasicMaterial({ map: MyApp.loadTexture() }));
         this.scene.add(this.displayPlane);
 
-        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
-        this.windowWidth = window.innerWidth;
-        this.windowHeight = window.innerHeight;
-        const halfWidth = this.windowWidth / 2;
-        const halfHeight = this.windowHeight / 2;
-        const slack = 0;  // ToDo remove this variable
-        this.camera = new THREE.OrthographicCamera(-halfWidth -slack, halfWidth +slack, -halfHeight -slack, halfHeight +slack, 0);
-
         // ToDo plug in initializeBackgroundStuff()
+
+        // renderer
+        this.renderer = new THREE.WebGLRenderer();
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(this.windowWidth, this.windowHeight);
+        this.renderer.setClearColor(0x000000);
+        document.body.appendChild(this.renderer.domElement);
 
         this.update();
     }
@@ -84,6 +88,15 @@ class MyApp {
         this.backgroundPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight), this.simulationShader);
         this.backgroundPlane.position.z = -100;
         this.backgroundScene.add(this.backgroundPlane);
+    }
+
+    static loadTexture() {
+        const texture = new THREE.TextureLoader().load("scenario.png");
+        texture.minFilter = THREE.NearestFilter;
+        texture.magFilter = THREE.NearestFilter;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        return texture;
     }
 
     makeSampleSquareTexture() {
