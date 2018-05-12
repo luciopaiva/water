@@ -1,27 +1,88 @@
 
 class MyApp {
 
-    static async run() {
-        const vertexShader = await MyApp.getFile("vertex-shader-simulation.glsl");
-        const fragmentShader = await MyApp.getFile("fragment-shader-simulation.glsl");
-        const displayVertexShader = await MyApp.getFile("vertex-shader-display.glsl");
-        const displayFragmentShader = await MyApp.getFile("fragment-shader-display.glsl");
-        new MyApp(vertexShader, fragmentShader, displayVertexShader, displayFragmentShader);
-    }
-
-    constructor (vertexShader, fragmentShader, displayVertexShader, displayFragmentShader) {
-        this.vertexShader = vertexShader;
-        this.fragmentShader = fragmentShader;
+    constructor (computeVertexShader, computeFragmentShader, displayVertexShader, displayFragmentShader,
+                 scenarioTexture) {
+        this.computeVertexShader = computeVertexShader;
+        this.computeFragmentShader = computeFragmentShader;
         this.displayVertexShader = displayVertexShader;
         this.displayFragmentShader = displayFragmentShader;
+        this.scenarioTexture = scenarioTexture;
 
         // keep it a power of two and greater than the screen's greatest dimension so the plane fills the entire screen
         // do not grow it too much, though, since it will put more burden in the compute shader stage
-        this.planeWidth = this.planeHeight = 2048;
+        this.planeSize = 2048;
 
-        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
         this.windowWidth = window.innerWidth;
         this.windowHeight = window.innerHeight;
+
+        // renderer (common to both compute and display scenes - see update())
+        this.renderer = new THREE.WebGLRenderer();
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setSize(this.windowWidth, this.windowHeight);
+        this.renderer.setClearColor(0x000000);
+        document.body.appendChild(this.renderer.domElement);
+
+        this.initializeComputeScene();
+        this.initializeDisplayScene();
+
+        this.update();
+    }
+
+    initializeComputeScene() {
+        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
+        const halfWidth = this.planeSize / 2;
+        const halfHeight = this.planeSize / 2;
+        this.backgroundCamera = new THREE.OrthographicCamera(-halfWidth, halfWidth, halfHeight, -halfHeight);
+        // move back a bit to see the plane
+        this.backgroundCamera.position.z = 1;
+
+        // scene
+        this.backgroundScene = new THREE.Scene();
+
+        // display shader
+        this.computeShaderMaterial = new THREE.ShaderMaterial({
+            depthTest: false,
+            depthWrite: false,
+            side: THREE.FrontSide,
+            uniforms: {
+                sampleTexture: { value: this.scenarioTexture }
+            },
+            vertexShader: this.computeVertexShader,
+            fragmentShader: this.computeFragmentShader,
+        });
+
+        // plane to show the shader's result (at [0,0,0], normal [0,0,1])
+        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.planeSize, this.planeSize);
+        this.backgroundPlane = new THREE.Mesh(displayPlaneGeometry, this.computeShaderMaterial);
+        this.backgroundScene.add(this.backgroundPlane);
+
+        this.computeTargets = [
+            MyApp.makeFrameBuffer(this.planeSize, this.planeSize),
+            MyApp.makeFrameBuffer(this.planeSize, this.planeSize)
+        ];
+        this.computeTargetIndex = 0;
+
+        // ToDo find out why can't use second renderer to compute (see update())
+        // // renderer
+        // this.backgroundRenderer = new THREE.WebGLRenderer();
+        // this.backgroundRenderer.setPixelRatio(window.devicePixelRatio);
+        // this.backgroundRenderer.setSize(this.planeSize, this.planeSize);
+        // this.backgroundRenderer.setClearColor(0x000000);
+        // this.backgroundRenderer.autoClear = false;
+
+        // render first time so display renderer can start with something
+        // this.backgroundRenderer.render(this.backgroundScene, this.backgroundCamera);
+        // this.backgroundRenderer.render(this.backgroundScene, this.backgroundCamera);
+        this.renderer.render(this.backgroundScene, this.backgroundCamera,
+            this.computeTargets[this.computeTargetIndex], true);
+        this.computeShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
+    }
+
+    initializeDisplayScene() {
+        // camera at [0,0,0] looking at [0,0,0] with near frustum plane set accordingly to see the display plane
+        // this.windowWidth = window.innerWidth;
+        // this.windowHeight = window.innerHeight;
         const halfWidth = this.windowWidth / 2;
         const halfHeight = this.windowHeight / 2;
         const scalingFactor = 1;  // may want to increase this when debugging
@@ -34,108 +95,59 @@ class MyApp {
         this.scene = new THREE.Scene();
 
         // display shader
-        this.displayShader = new THREE.ShaderMaterial({
+        this.displayShaderMaterial = new THREE.ShaderMaterial({
             depthTest: false,
             depthWrite: false,
             side: THREE.FrontSide,
             uniforms: {
-                sampleTexture: { type: "t", value: MyApp.loadTexture() }  // ToDo is `type` really needed?
+                sampleTexture: { value: this.computeTargets[this.computeTargetIndex].texture }
             },
             vertexShader: this.displayVertexShader,
             fragmentShader: this.displayFragmentShader,
         });
 
         // plane to show the shader's result (at [0,0,0], normal [0,0,1])
-        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight);
-        const displayPlaneMaterial = this.displayShader;
-        this.displayPlane = new THREE.Mesh(displayPlaneGeometry, displayPlaneMaterial);
-        // this.displayPlane = new THREE.Mesh(displayPlaneGeometry, new THREE.MeshBasicMaterial({ map: MyApp.loadTexture() }));
+        const displayPlaneGeometry = new THREE.PlaneBufferGeometry(this.planeSize, this.planeSize);
+        // ToDo use https://threejs.org/docs/#api/materials/Material.onBeforeCompile instead?
+        // this.displayPlane = new THREE.Mesh(displayPlaneGeometry, new THREE.MeshBasicMaterial({ map: this.backgroundTarget.texture }));
+        // this.displayPlane = new THREE.Mesh(displayPlaneGeometry, new THREE.MeshBasicMaterial({ map: this.scenarioTexture }));
+        this.displayPlane = new THREE.Mesh(displayPlaneGeometry, this.displayShaderMaterial);
         this.scene.add(this.displayPlane);
 
-        // ToDo plug in initializeBackgroundStuff()
+        // // renderer
+        // this.renderer = new THREE.WebGLRenderer();
+        // this.renderer.setPixelRatio(window.devicePixelRatio);
+        // this.renderer.setSize(this.windowWidth, this.windowHeight);
+        // this.renderer.setClearColor(0x000000);
+        // document.body.appendChild(this.renderer.domElement);
 
-        // renderer
-        this.renderer = new THREE.WebGLRenderer();
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.setSize(this.windowWidth, this.windowHeight);
-        this.renderer.setClearColor(0x000000);
-        document.body.appendChild(this.renderer.domElement);
-
-        this.update();
+        this.renderer.render(this.scene, this.camera);
     }
 
     update() {
+        this.computeTargetIndex = this.computeTargetIndex === 0 ? 1 : 0;
+
+        // compute...
+        // ToDo tried to compute in a separate renderer, but was unsuccessful (see comments below)
+        //      screen renderer has smaller size, not desirable when calculating full simulation space
+        //      find out what is wrong and use backgroundRenderer to compute instead
+        //      (on the other hand... why do I need something bigger than the screen? Perhaps if I wanted to be able to
+        //       scroll and zoom out... yeah, would be something cool to have)
+        // this.backgroundRenderer.render(this.backgroundScene, this.backgroundCamera, this.backgroundTarget, true);
+        this.renderer.render(this.backgroundScene, this.backgroundCamera,
+            this.computeTargets[this.computeTargetIndex], true);
+
+        // ...and display
+        this.displayShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
+        this.computeShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
         this.renderer.render(this.scene, this.camera);
+
+        // rinse and repeat
         requestAnimationFrame(this.update.bind(this));
     }
 
-    initializeBackgroundStuff() {
-        // frames that will be periodically swapped during rendering
-        this.foreground = MyApp.makeFrameBuffer();
-        this.background = MyApp.makeFrameBuffer();
-
-        this.backgroundScene = new THREE.Scene();
-        this.backgroundCamera = new THREE.OrthographicCamera(-halfWidth, halfWidth, -halfHeight, halfHeight, -10000, 10000);
-
-        this.simulationShader = new THREE.ShaderMaterial({
-            uniforms: {
-
-            },
-            vertexShader: this.vertexShader,
-            fragmentShader: fragmentShader,
-        });
-
-        this.backgroundPlane = new THREE.Mesh(new THREE.PlaneBufferGeometry(this.planeWidth, this.planeHeight), this.simulationShader);
-        this.backgroundPlane.position.z = -100;
-        this.backgroundScene.add(this.backgroundPlane);
-    }
-
-    static loadTexture() {
-        const texture = new THREE.TextureLoader().load("scenario.png");
-        texture.minFilter = THREE.NearestFilter;
-        texture.magFilter = THREE.NearestFilter;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        return texture;
-    }
-
-    makeSampleSquareTexture() {
-        const squareSide = this.planeWidth;
-        const size = squareSide * squareSide;
-        const data = new Uint8Array(3 * size);
-
-        const randomLevel = () => Math.floor(Math.random() * 256);
-
-        for (let j = 0; j < squareSide; j++) {
-            for (let i = 0; i < squareSide; i++) {
-                const pos = j * squareSide + i;
-                const stride = pos * 3;
-
-                if (i === 0 || j === 0) {  // first column/row will be white
-                    data[stride] = 255;
-                    data[stride + 1] = 255;
-                    data[stride + 2] = 255;
-                } else if (i === squareSide - 1 || j === squareSide - 1) {  // last column/row will be black
-                    data[stride] = data[stride + 1] = data[stride + 2] = 0;
-                } else {  // random colors for everybody else
-                    data[stride] = randomLevel();
-                    data[stride + 1] = randomLevel();
-                    data[stride + 2] = randomLevel();
-                }
-            }
-        }
-
-        const texture = new THREE.DataTexture(data, squareSide, squareSide, THREE.RGBFormat);
-        texture.minFilter = THREE.NearestFilter;
-        texture.magFilter = THREE.NearestFilter;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        texture.needsUpdate = true;
-        return texture;
-    }
-
-    static makeFrameBuffer() {
-        return new THREE.WebGLRenderer(this.planeWidth, this.planeHeight, {
+    static makeFrameBuffer(width, height) {
+        return new THREE.WebGLRenderTarget(width, height, {
             minFilter: THREE.NearestFilter,  // so pixels appear sharp
             magFilter: THREE.NearestFilter,
             depthBuffer: false,  // turn it off; not needed
@@ -159,6 +171,28 @@ class MyApp {
             request.send();
             request.addEventListener("error", reject)
         });
+    }
+
+    static async loadTexture(url) {
+        return new Promise((resolve) => {
+            new THREE.TextureLoader().load(url, (texture) => {
+                texture.minFilter = THREE.NearestFilter;
+                texture.magFilter = THREE.NearestFilter;
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                resolve(texture);
+            });
+        });
+    }
+
+    static async run() {
+        const computeVertexShader = await MyApp.getFile("compute-vertex-shader.glsl");
+        const computeFragmentShader = await MyApp.getFile("compute-fragment-shader.glsl");
+        const displayVertexShader = await MyApp.getFile("display-vertex-shader.glsl");
+        const displayFragmentShader = await MyApp.getFile("display-fragment-shader.glsl");
+        const scenarioTexture = await MyApp.loadTexture("scenario.png");
+        new MyApp(computeVertexShader, computeFragmentShader, displayVertexShader, displayFragmentShader,
+            scenarioTexture);
     }
 }
 
