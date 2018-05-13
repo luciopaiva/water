@@ -1,5 +1,5 @@
 
-# GPU water flow simulation with cellular automata
+# Cellular automata water flow simulation running on the GPU
 
 This is an experiment on how to convincingly simulate water flow using a classical cellular automata system where all cells in the grid are considered automata. The proposal here is to use this approach while also implementing it using GPGPU techniques in WebGL, a somewhat difficult task since WebGL currently does not have such a thing as a compute shader yet.
 
