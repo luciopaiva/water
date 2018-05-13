@@ -62,20 +62,20 @@ But then I thought of another way of doing it, one which involves a single shade
 
 ## References
 
-- GoL made in Three.js
+- GoL made in Three.js  
   http://charliehoey.com/threejs-demos/shader-game-of-life.html
   Used this project as base for my WebGL code.
 
-- Chris Wellons' GoL in Igloo
+- Chris Wellons' GoL in Igloo  
   http://nullprogram.com/blog/2014/06/10/
 
-- Chris Wellons' liquid simulator
+- Chris Wellons' liquid simulator  
   http://nullprogram.com/fun-liquid/webgl/
   Interesting way to render water.
 
-- regl particles example
+- regl particles example  
   http://regl.party/examples
 
-- Jon Gallant's water simulation
+- Jon Gallant's water simulation  
   http://www.jgallant.com/2d-liquid-simulator-with-cellular-automaton-in-unity/
   One concurrency issue happens when a cell changes its amount of water. It marks its neighbors as "unsettled", but since the simulation is updated top-to-bottom, left-to-right, cells above and to the left have already been stepped and will only be aware of the change in then next step. On the other hand, cells to the right and to the bottom will sense the change on this very iteration! I'm not sure what kind of problems this may bring, though;
