@@ -52,40 +52,30 @@ Then, after all 9 shaders have run, we run one extra and final shader which will
 
 But then I thought of another way of doing it, one which involves a single shader pass. In my initial approach, I was looking at each cell as a source of water, but I think it makes more sense (for the GPU approach) to think of it as water sinks. For each fragment, impersonate every neighbor of mine and calculate its flow towards me. Then sum it up and apply it to me, but also subtract the flow going outwards, if any. This way we can do it all in a single shader pass, with the penalty of calculating a total of 9 times the flow of each cell. I know it's a shame and it would be awesome if we could memoize it somehow, but I don't see how using the tools a WebGL shader gives us. Anyway, it's the same amount of calculation done with all 9 shaders of my first approach, but asking it all at once to the GPU.
 
----
-
-GoL made in Three.js
-http://charliehoey.com/threejs-demos/shader-game-of-life.html
-This project is what I'm using as base for my code.
-
-Chris Wellons' GoL in Igloo
-http://nullprogram.com/blog/2014/06/10/
-
-Chris Wellons' liquid simulator
-http://nullprogram.com/fun-liquid/webgl/
-When I get to make a "sand game", this could be how the water is rendered
-
-regl particles example
-http://regl.party/examples
-
----
-
-Good cellular automata liquid
-http://www.jgallant.com/2d-liquid-simulator-with-cellular-automaton-in-unity/
-But I think he needs to overwrite the same buffer, bottom up, otherwise his algorithm won't work as expected (because of the stacked falling water issue).
-
-Some notes on Jon's algorithm:
-
-https://github.com/jongallant/LiquidSimulator/blob/8b57f684e2710192946fe53644e8e2bc2db2086a/Assets/Scripts/LiquidSimulator.cs
-
-- One concurrency issue happens when a cell changes its amount of water. It marks its neighbors as "unsettled", but since the simulation is updated top-to-bottom, left-to-right, cells above and to the left have already been stepped and will only be aware of the change in then next step. On the other hand, cells to the right and to the bottom will sense the change on this very iteration! I'm not sure what kind of problems this may bring, though;
-
----
-
-## Notes
+## Random notes
 
 > According to [GLSL ES v3 specification](https://www.khronos.org/registry/OpenGL/specs/es/3.0/GLSL_ES_Specification_3.00.pdf), `#version` must be specified or the compiler will assume `#version 100 es` by default. I tried specifying it in my script, but the compiler complained about `#version` not being the first thing in the script. Then I realised that Three.js is prepeding stuff to my script. This also means that all shader scripts fed to Three.js must use v1.00 regardless. There's [an issue](https://github.com/mrdoob/three.js/issues/9965) open in Three.js's GitHub page asking for WebGL2 support, [which brings support to ES v3](https://webgl2fundamentals.org/webgl/lessons/webgl1-to-webgl2.html), but it's been more than an year since the issue was opened and I don't know what's the progress on that.
 
 > Three.js defines several variables that are prepended to user's shader script. `projectionMatrix`, `modelViewMatrix` and `position` are some of them (these 3 variables are frequently used in scripts that just set `gl_Position` and do nothing more).
 
 > I found out there's one way to use WebGL v2 with Three.js right now, which is to create the shader using [`RawShaderMaterial()`](https://threejs.org/docs/#api/materials/RawShaderMaterial). You won't get those injected variables mentioned above, but, in the other hand, you get to say which GLSL version you want to use (i.e., you can specifify `#version 300 es` in the first line and then use whatever feature is available).
+
+## References
+
+- GoL made in Three.js
+  http://charliehoey.com/threejs-demos/shader-game-of-life.html
+  Used this project as base for my WebGL code.
+
+- Chris Wellons' GoL in Igloo
+  http://nullprogram.com/blog/2014/06/10/
+
+- Chris Wellons' liquid simulator
+  http://nullprogram.com/fun-liquid/webgl/
+  Interesting way to render water.
+
+- regl particles example
+  http://regl.party/examples
+
+- Jon Gallant's water simulation
+  http://www.jgallant.com/2d-liquid-simulator-with-cellular-automaton-in-unity/
+  One concurrency issue happens when a cell changes its amount of water. It marks its neighbors as "unsettled", but since the simulation is updated top-to-bottom, left-to-right, cells above and to the left have already been stepped and will only be aware of the change in then next step. On the other hand, cells to the right and to the bottom will sense the change on this very iteration! I'm not sure what kind of problems this may bring, though;
