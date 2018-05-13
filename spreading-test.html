@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Water spreading test</title>
+
+    <style>
+        body {
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+        }
+        table {
+            font-size: 24px;
+            border: 1px solid black;
+            border-spacing: 2px;
+            border-collapse: collapse;
+            margin: 40px;
+        }
+        td {
+            border: 1px solid black;
+            width: 110px;
+            padding: 5px;
+            height: 50px;
+            text-align: center;
+        }
+        input {
+            width: 100px;
+            text-align: center;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Single cell flow step</h1>
+
+<div class="container">
+    <table id="cell-table"></table>
+    <table id="diff-table"></table>
+</div>
+
+<p>Testing the algorithm proposed by Jon Gallant
+    <a href="https://github.com/jongallant/LiquidSimulator/blob/8b57f684e2710192946fe53644e8e2bc2db2086a/Assets/Scripts/LiquidSimulator.cs">here</a>.</p>
+
+<script type="module">
+
+    const maxValue = 1;
+    const minValue = 0.005;
+    const maxCompression = 0.25;
+    const minFlow = 0.005;
+    const maxFlow = 4;
+    const flowSpeed = 1;
+
+    const size = 3;
+    const matrix = Array.from(Array(size), () => Array.from(Array(size), () => {
+        return {
+            element: null,
+            diffElement: null,
+            value: 0,
+            diff: 0
+        }
+    }));
+    const center = matrix[1][1];
+    const top = matrix[1][0];
+    const right = matrix[2][1];
+    const bottom = matrix[1][2];
+    const left = matrix[0][1];
+
+    initialize();
+
+    // functions
+
+    function initialize() {
+        center.value = 5;
+
+        const cellTable = document.getElementById("cell-table");
+        const diffTable = document.getElementById("diff-table");
+
+        for (let y = 0; y < size; y++) {
+            const cellRowElement = cellTable.insertRow();
+            const diffRowElement = diffTable.insertRow();
+
+            for (let x = 0; x < size; x++) {
+                const cellObj = matrix[x][y];
+
+                const input = document.createElement("input");
+                input.setAttribute("type", "number");
+                input.setAttribute("step", "1");
+                input.setAttribute("min", "0");
+                if (x === 0 && y === 0 || x === 2 && y === 0 || x === 2 && y === 2 || x === 0 && y === 2) {
+                    input.setAttribute("disabled", "");
+                }
+
+                const cellElement = cellRowElement.insertCell();
+                // cellElement.setAttribute("id", colIndex + "-" + rowIndex);
+
+                cellElement.appendChild(input);
+                input.addEventListener("input", () => {
+                    cellObj.value = parseFloat(input.value);
+                    recalculate();
+                });
+                cellObj.element = input;
+
+                const diffElement = diffRowElement.insertCell();
+                cellObj.diffElement = diffElement;
+                diffElement.innerHTML = "0";
+
+                updateCellElement(cellObj);
+            }
+        }
+
+        recalculate();
+    }
+
+    function clearDiffs() {
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const cell = matrix[x][y];
+                cell.diff = 0;
+                updateCellElement(cell);
+            }
+        }
+    }
+
+    function updateAllElements() {
+        for (let x = 0; x < size; x++) {
+            for (let y = 0; y < size; y++) {
+                const cell = matrix[x][y];
+                updateCellElement(cell);
+            }
+        }
+    }
+
+    function updateCellElement(cell) {
+        cell.element.value = cell.value;
+        cell.diffElement.innerText = cell.diff.toFixed(2);
+    }
+
+    function calculateVerticalFlowValue(liquidMe, liquidDestination) {
+        const sum = liquidMe + liquidDestination;
+
+        if (sum <= maxValue) {
+            return maxValue;
+        } else if (sum < 2 * maxValue + maxCompression) {
+            return (maxValue * maxValue + sum * maxCompression) / (maxValue + maxCompression);
+        } else {
+            return (sum + maxCompression) / 2;
+        }
+    }
+
+    function recalculate() {
+        doRecalculate();
+        updateAllElements();
+    }
+
+    function constrainFlow(flow, remainingAtCenter) {
+        flow = Math.max(flow, 0);
+        if (flow > Math.min(maxFlow, remainingAtCenter)) {
+            flow = Math.min(maxFlow, remainingAtCenter);
+        }
+        return flow;
+    }
+
+    function doRecalculate() {
+        let remainingValue = center.value;
+        let flow;
+
+        clearDiffs();
+
+        // bottom
+        flow = calculateVerticalFlowValue(center.value, bottom.value) - bottom.value;
+        if (bottom.value > 0 && flow > minFlow) {
+            flow *= flowSpeed;
+        }
+
+        flow = constrainFlow(flow, remainingValue);
+
+        if (flow !== 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            bottom.diff += flow;
+        }
+
+        if (remainingValue < minValue) {
+            center.diff -= remainingValue;
+            return;
+        }
+
+        // left
+        flow = (remainingValue - left.value) / 4;
+        if (flow < minFlow) {
+            flow *= flowSpeed;
+        }
+
+        flow = constrainFlow(flow, remainingValue);
+
+        if (flow !== 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            left.diff += flow;
+        }
+
+        if (remainingValue < minValue) {
+            center.diff -= remainingValue;
+            return;
+        }
+
+        // right
+        flow = (remainingValue - right.value) / 3;
+        if (flow < minFlow) {
+            flow *= flowSpeed;
+        }
+
+        flow = constrainFlow(flow, remainingValue);
+
+        if (flow !== 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            right.diff += flow;
+        }
+
+        if (remainingValue < minValue) {
+            center.diff -= remainingValue;
+            return;
+        }
+
+        // top
+        flow = remainingValue - calculateVerticalFlowValue(center.value, top.value);
+        if (flow > minFlow) {
+            flow *= flowSpeed;
+        }
+
+        flow = constrainFlow(flow, remainingValue);
+
+        if (flow !== 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            top.diff += flow;
+        }
+
+        if (remainingValue < minValue) {
+            center.diff -= remainingValue;
+        }
+    }
+</script>
+
+</body>
+</html>
