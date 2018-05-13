@@ -1,10 +1,123 @@
 
-const maxValue = 1;
-const minValue = 0.005;
-const maxCompression = 0.25;
-const minFlow = 0.005;
-const maxFlow = 4;
-const flowSpeed = 1;
+class LucioPaivas {
+    constructor () {
+
+    }
+
+    run() {
+
+    }
+}
+
+class JonGallants {
+
+    constructor () {
+        this.maxValue = 1;
+        this.minValue = 0.005;
+        this.maxCompression = 0.25;
+        this.minFlow = 0.005;
+        this.maxFlow = 4;
+        this.flowSpeed = 1;
+    }
+
+    calculateVerticalFlowValue(liquidMe, liquidDestination) {
+        const sum = liquidMe + liquidDestination;
+
+        if (sum <= this.maxValue) {  // if the destination can hold it all, transfer them everything I have
+            return this.maxValue;
+        } else if (sum < 2 * this.maxValue + this.maxCompression) {
+            return (this.maxValue * this.maxValue + sum * this.maxCompression) / (this.maxValue + this.maxCompression);
+        } else {
+            return (sum + this.maxCompression) / 2;
+        }
+    }
+
+    constrainFlow(flow, remainingAtCenter) {
+        const min = 0;
+        const max = Math.min(this.maxFlow, remainingAtCenter);
+        return Math.max(min, Math.min(flow, max));
+    }
+
+    run() {
+        let remainingValue = center.value;
+        let flow;
+
+        // bottom
+        flow = this.calculateVerticalFlowValue(center.value, bottom.value) - bottom.value;
+        if (bottom.value > 0 && flow > this.minFlow) {
+            flow *= this.flowSpeed;
+        }
+
+        flow = this.constrainFlow(flow, remainingValue);
+
+        if (flow > 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            bottom.diff += flow;
+        }
+
+        if (remainingValue < this.minValue) {
+            center.diff -= remainingValue;
+            return;
+        }
+
+        // left
+        flow = (remainingValue - left.value) / 4;
+        if (flow < this.minFlow) {
+            flow *= this.flowSpeed;
+        }
+
+        flow = this.constrainFlow(flow, remainingValue);
+
+        if (flow > 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            left.diff += flow;
+        }
+
+        if (remainingValue < this.minValue) {
+            center.diff -= this.remainingValue;
+            return;
+        }
+
+        // right
+        flow = (remainingValue - right.value) / 3;
+        if (flow < this.minFlow) {
+            flow *= this.flowSpeed;
+        }
+
+        flow = this.constrainFlow(flow, remainingValue);
+
+        if (flow > 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            right.diff += flow;
+        }
+
+        if (remainingValue < this.minValue) {
+            center.diff -= remainingValue;
+            return;
+        }
+
+        // top
+        flow = remainingValue - this.calculateVerticalFlowValue(center.value, top.value);
+        if (flow > this.minFlow) {
+            flow *= this.flowSpeed;
+        }
+
+        flow = this.constrainFlow(flow, remainingValue);
+
+        if (flow > 0) {
+            remainingValue -= flow;
+            center.diff -= flow;
+            top.diff += flow;
+        }
+
+        if (remainingValue < this.minValue) {
+            center.diff -= remainingValue;
+        }
+    }
+}
 
 const size = 3;
 const matrix = Array.from(Array(size), () => Array.from(Array(size), () => {
@@ -15,6 +128,7 @@ const matrix = Array.from(Array(size), () => Array.from(Array(size), () => {
         diff: 0
     }
 }));
+
 const center = matrix[1][1];
 const top = matrix[1][0];
 const right = matrix[2][1];
@@ -24,6 +138,9 @@ const left = matrix[0][1];
 const ALGORITHM_GALLANT = 0;
 const ALGORITHM_PAIVA = 1;
 let selectedAlgorithm = null;
+
+const jonGallants = new JonGallants();
+const lucioPaivas = new LucioPaivas();
 
 initialize();
 
@@ -110,116 +227,14 @@ function updateCellDiffElement(cell) {
     cell.diffElement.innerHTML = `${netValue.toFixed(2)} <br> <span class="perc">${perc.toFixed(0)}%</span>`;
 }
 
-function calculateVerticalFlowValue(liquidMe, liquidDestination) {
-    const sum = liquidMe + liquidDestination;
-
-    if (sum <= maxValue) {  // if the destination can hold it all, transfer them everything I have
-        return maxValue;
-    } else if (sum < 2 * maxValue + maxCompression) {
-        return (maxValue * maxValue + sum * maxCompression) / (maxValue + maxCompression);
-    } else {
-        return (sum + maxCompression) / 2;
-    }
-}
-
 function recalculate() {
     clearDiffs();
 
     if (selectedAlgorithm === ALGORITHM_GALLANT) {
-        runJonGallants();
+        jonGallants.run();
     } else {
-        runLucioPaivas();
+        lucioPaivas.run();
     }
 
     updateAllElements();
-}
-
-function runLucioPaivas() {
-
-}
-
-function constrainFlow(flow, remainingAtCenter) {
-    const min = 0;
-    const max = Math.min(maxFlow, remainingAtCenter);
-    return Math.max(min, Math.min(flow, max));
-}
-
-function runJonGallants() {
-    let remainingValue = center.value;
-    let flow;
-
-    // bottom
-    flow = calculateVerticalFlowValue(center.value, bottom.value) - bottom.value;
-    if (bottom.value > 0 && flow > minFlow) {
-        flow *= flowSpeed;
-    }
-
-    flow = constrainFlow(flow, remainingValue);
-
-    if (flow > 0) {
-        remainingValue -= flow;
-        center.diff -= flow;
-        bottom.diff += flow;
-    }
-
-    if (remainingValue < minValue) {
-        center.diff -= remainingValue;
-        return;
-    }
-
-    // left
-    flow = (remainingValue - left.value) / 4;
-    if (flow < minFlow) {
-        flow *= flowSpeed;
-    }
-
-    flow = constrainFlow(flow, remainingValue);
-
-    if (flow > 0) {
-        remainingValue -= flow;
-        center.diff -= flow;
-        left.diff += flow;
-    }
-
-    if (remainingValue < minValue) {
-        center.diff -= remainingValue;
-        return;
-    }
-
-    // right
-    flow = (remainingValue - right.value) / 3;
-    if (flow < minFlow) {
-        flow *= flowSpeed;
-    }
-
-    flow = constrainFlow(flow, remainingValue);
-
-    if (flow > 0) {
-        remainingValue -= flow;
-        center.diff -= flow;
-        right.diff += flow;
-    }
-
-    if (remainingValue < minValue) {
-        center.diff -= remainingValue;
-        return;
-    }
-
-    // top
-    flow = remainingValue - calculateVerticalFlowValue(center.value, top.value);
-    if (flow > minFlow) {
-        flow *= flowSpeed;
-    }
-
-    flow = constrainFlow(flow, remainingValue);
-
-    if (flow > 0) {
-        remainingValue -= flow;
-        center.diff -= flow;
-        top.diff += flow;
-    }
-
-    if (remainingValue < minValue) {
-        center.diff -= remainingValue;
-    }
 }
