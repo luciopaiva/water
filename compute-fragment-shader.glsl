@@ -11,6 +11,10 @@ bool isEmpty(vec4 point) {
     return point.r + point.g + point.b <= 0.0;
 }
 
+bool isBlock(vec4 point) {
+    return point.r > 0.5 && point.g > 0.5 && point.b > 0.5;
+}
+
 vec2 diff(float du, float dv) {
     return vec2(uvCoords.x + du * cellSize, uvCoords.y + dv * cellSize);
 }
