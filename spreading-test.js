@@ -1,11 +1,52 @@
 
 class LucioPaivas {
     constructor () {
-
+        /** amount of water that a cell can hold comfortably */
+        this.comfortableWeight = 1;
+        /** total amount of water that can be transferred by a cell to its neighbors in a single step */
+        // ToDo maybe this can be a percentage of the current amount of water the cell is holding
+        this.totalMaxCurrent = 4;
+        /** pressure delta when you go one cell down - helps biasing vertical flow by inducing movement down and making
+         *  it hard for water to go up */
+        this.pressureDelta = 2;
     }
 
     run() {
+        if (center.value <= this.comfortableWeight) {
+            // ToDo there's no "comfortable" if cell below is empty; water must flow down - do not return here
+            return;
+        }
 
+        const totalMaxCurrent = Math.min(this.totalMaxCurrent, center.value);
+        const potentialLeft = Math.max(0, totalMaxCurrent - left.value);
+        const potentialRight = Math.max(0, totalMaxCurrent - right.value);
+        const potentialDown = Math.max(0, totalMaxCurrent - down.value + this.pressureDelta);
+        const potentialTop = Math.max(0, totalMaxCurrent - top.value - this.pressureDelta);
+        // ToDo to remove the condition at the beginning of the method, I have to somehow make at least part of the water
+        //      want to stay in the block... instead of introducing the concept of inertia, maybe I could just implement
+        //      some scaling factor after calculating the current to each neighbor
+        const potentialInertia = 0; // center.value - this.comfortableWeight;
+        const totalPotential = potentialLeft + potentialRight + potentialDown + potentialTop + potentialInertia;
+        if (totalPotential === 0) {
+            return;
+        }
+
+        const conductanceFactorLeft = potentialLeft / totalPotential;
+        const conductanceFactorRight = potentialRight / totalPotential;
+        const conductanceFactorTop = potentialTop / totalPotential;
+        const conductanceFactorDown = potentialDown / totalPotential;
+
+        // ToDo flow more or less water according to individual potential difference, but always respecting total flow
+        const currentLeft = conductanceFactorLeft * totalMaxCurrent;
+        const currentRight = conductanceFactorRight * totalMaxCurrent;
+        const currentTop = conductanceFactorTop * totalMaxCurrent;
+        const currentDown = conductanceFactorDown * totalMaxCurrent;
+
+        left.diff += currentLeft;
+        right.diff += currentRight;
+        top.diff += currentTop;
+        down.diff += currentDown;
+        center.diff -= totalMaxCurrent;
     }
 }
 
@@ -43,8 +84,8 @@ class JonGallants {
         let flow;
 
         // bottom
-        flow = this.calculateVerticalFlowValue(center.value, bottom.value) - bottom.value;
-        if (bottom.value > 0 && flow > this.minFlow) {
+        flow = this.calculateVerticalFlowValue(center.value, down.value) - down.value;
+        if (down.value > 0 && flow > this.minFlow) {
             flow *= this.flowSpeed;
         }
 
@@ -53,7 +94,7 @@ class JonGallants {
         if (flow > 0) {
             remainingValue -= flow;
             center.diff -= flow;
-            bottom.diff += flow;
+            down.diff += flow;
         }
 
         if (remainingValue < this.minValue) {
@@ -63,7 +104,7 @@ class JonGallants {
 
         // left
         flow = (remainingValue - left.value) / 4;
-        if (flow < this.minFlow) {
+        if (flow > this.minFlow) {
             flow *= this.flowSpeed;
         }
 
@@ -76,13 +117,13 @@ class JonGallants {
         }
 
         if (remainingValue < this.minValue) {
-            center.diff -= this.remainingValue;
+            center.diff -= remainingValue;
             return;
         }
 
         // right
         flow = (remainingValue - right.value) / 3;
-        if (flow < this.minFlow) {
+        if (flow > this.minFlow) {
             flow *= this.flowSpeed;
         }
 
@@ -132,7 +173,7 @@ const matrix = Array.from(Array(size), () => Array.from(Array(size), () => {
 const center = matrix[1][1];
 const top = matrix[1][0];
 const right = matrix[2][1];
-const bottom = matrix[1][2];
+const down = matrix[1][2];
 const left = matrix[0][1];
 
 const ALGORITHM_GALLANT = 0;
@@ -147,7 +188,7 @@ initialize();
 // functions
 
 function initialize() {
-    center.value = 5;
+    center.value = 2;
 
     const cellTable = document.getElementById("cell-table");
     const diffTable = document.getElementById("diff-table");
