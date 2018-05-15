@@ -43,23 +43,15 @@
 <h1>Single cell flow step</h1>
 
 <div class="container">
-    <table id="cell-table"></table>
-    <table id="diff-table"></table>
-</div>
-
-<div class="algorithm-box">
-    Select the algorithm to run:
-    <br>
-    <br>
-
-    <input name="algorithm" type="radio" id="radio-gallant">
-    <label for="radio-gallant">Jon Gallant's - testing the algorithm proposed by Jon Gallant
-    <a href="https://github.com/jongallant/LiquidSimulator/blob/8b57f684e2710192946fe53644e8e2bc2db2086a/Assets/Scripts/LiquidSimulator.cs">here</a>.</label>
-
-    <br>
-
-    <input name="algorithm" type="radio" id="radio-paiva" checked>
-    <label for="radio-paiva">Lucio Paiva's - my own take at it</label>
+    <table id="cell-table">
+        <caption>Water levels</caption>
+    </table>
+    <table id="diff-table-gallant">
+        <caption>Gallant</caption>
+    </table>
+    <table id="diff-table-paiva">
+        <caption>Paiva</caption>
+    </table>
 </div>
 
 <script type="module" src="spreading-test.js"></script>

@@ -160,11 +160,22 @@ class JonGallants {
     }
 }
 
+class AlgoInfo {
+    constructor (index, instance, table) {
+        this.index = index;
+        this.instance = instance;
+        this.table = table;
+    }
+    run() {
+        this.instance.run();
+    }
+}
+
 const size = 3;
 const matrix = Array.from(Array(size), () => Array.from(Array(size), () => {
     return {
         element: null,
-        diffElement: null,
+        diffElementByAlgorithmIndex: [],
         value: 0,
         diff: 0
     }
@@ -176,12 +187,10 @@ const right = matrix[2][1];
 const down = matrix[1][2];
 const left = matrix[0][1];
 
-const ALGORITHM_GALLANT = 0;
-const ALGORITHM_PAIVA = 1;
-let selectedAlgorithm = null;
-
-const jonGallants = new JonGallants();
-const lucioPaivas = new LucioPaivas();
+const ALGORITHMS = [
+    new AlgoInfo(0, new JonGallants(), document.getElementById("diff-table-gallant")),
+    new AlgoInfo(1, new LucioPaivas(), document.getElementById("diff-table-paiva"))
+];
 
 initialize();
 
@@ -191,11 +200,10 @@ function initialize() {
     center.value = 2;
 
     const cellTable = document.getElementById("cell-table");
-    const diffTable = document.getElementById("diff-table");
 
+    // create input table
     for (let y = 0; y < size; y++) {
         const cellRowElement = cellTable.insertRow();
-        const diffRowElement = diffTable.insertRow();
 
         for (let x = 0; x < size; x++) {
             const cellObj = matrix[x][y];
@@ -210,7 +218,6 @@ function initialize() {
             }
 
             const cellElement = cellRowElement.insertCell();
-            // cellElement.setAttribute("id", colIndex + "-" + rowIndex);
 
             cellElement.appendChild(input);
             input.addEventListener("input", () => {
@@ -219,26 +226,25 @@ function initialize() {
             });
             cellObj.element = input;
             cellObj.element.value = cellObj.value;
-
-            const diffElement = diffRowElement.insertCell();
-            cellObj.diffElement = diffElement;
-            diffElement.innerHTML = "0";
-
-            updateCellDiffElement(cellObj);
         }
     }
 
-    const radioGallant = document.getElementById("radio-gallant");
-    radioGallant.addEventListener("input", () => {
-        selectedAlgorithm = ALGORITHM_GALLANT;
-        recalculate();
+    // create output tables
+    ALGORITHMS.forEach(algo => {
+        for (let y = 0; y < size; y++) {
+
+            const diffRowElement = algo.table.insertRow();
+
+            for (let x = 0; x < size; x++) {
+                const cellObj = matrix[x][y];
+
+                let diffElement = diffRowElement.insertCell();
+                cellObj.diffElementByAlgorithmIndex[algo.index] = diffElement;
+                diffElement.innerHTML = "0";
+                updateCellDiffElement(cellObj, algo.index);
+            }
+        }
     });
-    const radioPaiva = document.getElementById("radio-paiva");
-    radioPaiva.addEventListener("input", () => {
-        selectedAlgorithm = ALGORITHM_PAIVA;
-        recalculate();
-    });
-    selectedAlgorithm = radioPaiva.hasAttribute("checked") ? ALGORITHM_PAIVA : ALGORITHM_GALLANT;
 
     recalculate();
 }
@@ -248,34 +254,32 @@ function clearDiffs() {
         for (let x = 0; x < size; x++) {
             const cell = matrix[x][y];
             cell.diff = 0;
-            updateCellDiffElement(cell);
+            ALGORITHMS.forEach(algo => updateCellDiffElement(cell, algo.index));
         }
     }
 }
 
-function updateAllElements() {
+function updateDiffElementsForAlgorithm(algorithmIndex) {
     for (let x = 0; x < size; x++) {
         for (let y = 0; y < size; y++) {
             const cell = matrix[x][y];
-            updateCellDiffElement(cell);
+            updateCellDiffElement(cell, algorithmIndex);
         }
     }
 }
 
-function updateCellDiffElement(cell) {
+function updateCellDiffElement(cell, algorithmIndex) {
     const netValue = (cell === center) ? cell.value + cell.diff : cell.diff;
     const perc = center.value > 0 ? 100 * (netValue / center.value) : 0;
-    cell.diffElement.innerHTML = `${netValue.toFixed(2)} <br> <span class="perc">${perc.toFixed(0)}%</span>`;
+    cell.diffElementByAlgorithmIndex[algorithmIndex].innerHTML =
+        `${netValue.toFixed(2)} <br> <span class="perc">${perc.toFixed(0)}%</span>`;
 }
 
 function recalculate() {
     clearDiffs();
 
-    if (selectedAlgorithm === ALGORITHM_GALLANT) {
-        jonGallants.run();
-    } else {
-        lucioPaivas.run();
-    }
-
-    updateAllElements();
+    ALGORITHMS.forEach(algo => {
+        algo.run();
+        updateDiffElementsForAlgorithm(algo.index);
+    });
 }
