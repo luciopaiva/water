@@ -9,6 +9,10 @@ class MyApp {
         this.displayFragmentShader = displayFragmentShader;
         this.scenarioTexture = scenarioTexture;
 
+        this.fpsCounterElement = document.getElementById("fps");
+        this.fpsCounter = 0;
+        setInterval(() => { this.fpsCounterElement.innerText = this.fpsCounter.toFixed(0); this.fpsCounter = 0}, 1000);
+
         // keep it a power of two and greater than the screen's greatest dimension so the plane fills the entire screen
         // do not grow it too much, though, since it will put more burden in the compute shader stage
         this.planeSize = 2048;
@@ -26,7 +30,21 @@ class MyApp {
         this.initializeComputeScene();
         this.initializeDisplayScene();
 
+        this.isPaused = false;
         this.update();
+        document.addEventListener("keypress", event => {
+            switch (event.key) {
+                case "n":
+                    this.isPaused && this.update(true);
+                    break;
+                case "p":
+                    this.isPaused = !this.isPaused;
+                    break;
+                case "r":
+                    this.initializeComputeScene();
+                    break;
+            }
+        });
     }
 
     initializeComputeScene() {
@@ -101,7 +119,8 @@ class MyApp {
             depthWrite: false,
             side: THREE.FrontSide,
             uniforms: {
-                sampleTexture: { value: this.computeTargets[this.computeTargetIndex].texture }
+                sampleTexture: { value: this.scenarioTexture }
+                // sampleTexture: { value: this.computeTargets[this.computeTargetIndex].texture }
             },
             vertexShader: this.displayVertexShader,
             fragmentShader: this.displayFragmentShader,
@@ -125,10 +144,25 @@ class MyApp {
         this.renderer.render(this.scene, this.camera);
     }
 
-    update() {
+    update(isSingleStep) {
+        if (!isSingleStep) {
+            // program next update
+            requestAnimationFrame(this.update.bind(this, isSingleStep));
+        }
+
+        if (this.isPaused && !isSingleStep) {
+            return;
+        }
+
+        // display latest computation...
+        this.displayShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
+        this.computeShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
+        this.renderer.render(this.scene, this.camera);
+
+        // and then compute a new one...
+
         this.computeTargetIndex = this.computeTargetIndex === 0 ? 1 : 0;
 
-        // compute...
         // ToDo tried to compute in a separate renderer, but was unsuccessful (see comments below)
         //      screen renderer has smaller size, not desirable when calculating full simulation space
         //      find out what is wrong and use backgroundRenderer to compute instead
@@ -138,13 +172,7 @@ class MyApp {
         this.renderer.render(this.backgroundScene, this.backgroundCamera,
             this.computeTargets[this.computeTargetIndex], true);
 
-        // ...and display
-        this.displayShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
-        this.computeShaderMaterial.uniforms.sampleTexture.value = this.computeTargets[this.computeTargetIndex].texture;
-        this.renderer.render(this.scene, this.camera);
-
-        // rinse and repeat
-        requestAnimationFrame(this.update.bind(this));
+        this.fpsCounter++;
     }
 
     static makeFrameBuffer(width, height) {

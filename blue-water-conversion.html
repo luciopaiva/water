@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blue-water conversion</title>
+
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            margin: 50px 100px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Converting blue to water and vice-versa</h1>
+
+<div class="container">
+    <div>
+        <input id="blue" type="range" min="0" max="255" step="0.01">
+        <label for="blue">Blue level <span id="blue-value"></span></label>
+    </div>
+    <div>
+        <input id="water" type="range" min="0" max="128" step="0.01">
+        <label for="water">Water level <span id="water-value"></span></label>
+    </div>
+</div>
+
+<script>
+    function bind(id) {
+        return document.getElementById(id);
+    }
+
+    function bindRange(id, onChange) {
+        const range = /** @type {HTMLInputElement} */ document.getElementById(id);
+        if (onChange) {
+            range.addEventListener("input", () => onChange.call(range, range.value));
+        }
+        return range;
+    }
+
+    const MIN_WATER_LEVEL = 0.01;  // minimum level of water before remaining water evaporates and is lost
+    const MAX_WATER_LEVEL = 16.0;  // maximum water that a single cell can hold
+    const MIN_BLUE = 0.4;  // this is the level of blue equivalent to the max level of water (more dense means darker)
+    const MAX_BLUE = 1.0;  // lightest blue, equivalent to the min level of water (less dense)
+
+    function blueToWater(blue) {
+        return (blue - MIN_BLUE) * (MIN_WATER_LEVEL - MAX_WATER_LEVEL) / (MAX_BLUE - MIN_BLUE) + MAX_WATER_LEVEL;
+    }
+
+    function waterToBlue(water) {
+        return (water - MAX_WATER_LEVEL) * (MAX_BLUE - MIN_BLUE) / (MIN_WATER_LEVEL - MAX_WATER_LEVEL) + MIN_BLUE;
+    }
+
+    function onBlueLevelChanged(value) {
+        const blueNumber = parseFloat(value);
+        const waterNumber = blueToWater(blueNumber);
+
+        blueRange.value = blueNumber;  // necessary when calling this function manually
+        waterRange.value = waterNumber;
+        blueValue.innerText = blueNumber.toFixed(2);
+        waterValue.innerText = waterNumber.toFixed(2);
+    }
+
+    function onWaterLevelChanged(value) {
+        const waterNumber = parseFloat(value);
+        const blueNumber = waterToBlue(waterNumber);
+
+        waterRange.value = waterNumber;  // necessary when calling this function manually
+        blueRange.value = blueNumber;
+        blueValue.innerText = blueNumber.toFixed(2);
+        waterValue.innerText = waterNumber.toFixed(2);
+    }
+
+    const blueValue = bind("blue-value");
+    const waterValue = bind("water-value");
+
+    const blueRange = bindRange("blue", onBlueLevelChanged);
+    blueRange.setAttribute("min", MIN_BLUE.toFixed(2));
+    blueRange.setAttribute("max", MAX_BLUE.toFixed(2));
+    const waterRange = bindRange("water", onWaterLevelChanged);
+    waterRange.setAttribute("min", MIN_WATER_LEVEL.toFixed(2));
+    waterRange.setAttribute("max", MAX_WATER_LEVEL.toFixed(2));
+
+    onBlueLevelChanged((MAX_BLUE + MIN_BLUE) / 2);
+</script>
+
+</body>
+</html>

@@ -6,37 +6,47 @@ class LucioPaivas {
         /** total amount of water that can be transferred by a cell to its neighbors in a single step */
         // ToDo maybe this can be a percentage of the current amount of water the cell is holding
         this.totalMaxCurrent = 4;
+        /** percentage of water that is allowed to flow outwards in a single step */
+        this.currentCoefficient = 0.8;
         /** pressure delta when you go one cell down - helps biasing vertical flow by inducing movement down and making
          *  it hard for water to go up */
-        this.pressureDelta = 2;
+        this.pressureDelta = 10;
+
+        this.pressureCoefficient = 10;
     }
 
     run() {
-        if (center.value <= this.comfortableWeight) {
-            // ToDo there's no "comfortable" if cell below is empty; water must flow down - do not return here
-            return;
-        }
+        // if (center.value <= this.comfortableWeight) {
+        //     // ToDo there's no "comfortable" if cell below is empty; water must flow down - do not return here
+        //     return;
+        // }
 
-        const totalMaxCurrent = Math.min(this.totalMaxCurrent, center.value);
+        const totalMaxCurrent = this.currentCoefficient * center.value;  // Math.min(this.totalMaxCurrent, center.value);
+        // const potentialDown = Math.max(0, totalMaxCurrent - down.value + this.pressureDelta);
+        // const potentialTop = Math.max(0, totalMaxCurrent - top.value - this.pressureDelta);
+
+        // current will be proportional to the square of the water level difference between us and each neighbor
+        const potentialTop = Math.max(0, totalMaxCurrent - top.value);
         const potentialLeft = Math.max(0, totalMaxCurrent - left.value);
         const potentialRight = Math.max(0, totalMaxCurrent - right.value);
-        const potentialDown = Math.max(0, totalMaxCurrent - down.value + this.pressureDelta);
-        const potentialTop = Math.max(0, totalMaxCurrent - top.value - this.pressureDelta);
-        // ToDo to remove the condition at the beginning of the method, I have to somehow make at least part of the water
-        //      want to stay in the block... instead of introducing the concept of inertia, maybe I could just implement
-        //      some scaling factor after calculating the current to each neighbor
-        const potentialInertia = 0; // center.value - this.comfortableWeight;
-        const totalPotential = potentialLeft + potentialRight + potentialDown + potentialTop + potentialInertia;
+        const potentialDown = Math.max(0, totalMaxCurrent - down.value);
+
+        const totalPotential = potentialTop +
+            potentialLeft * 10 +
+            potentialRight * 10 +
+            potentialDown * 200;
         if (totalPotential === 0) {
             return;
         }
 
-        const conductanceFactorLeft = potentialLeft / totalPotential;
-        const conductanceFactorRight = potentialRight / totalPotential;
         const conductanceFactorTop = potentialTop / totalPotential;
-        const conductanceFactorDown = potentialDown / totalPotential;
+        const conductanceFactorLeft = 10 * potentialLeft / totalPotential;
+        const conductanceFactorRight = 10 * potentialRight / totalPotential;
+        const conductanceFactorDown = 200 * potentialDown / totalPotential;
 
-        // ToDo flow more or less water according to individual potential difference, but always respecting total flow
+        // sum should be 1
+        console.info(conductanceFactorTop + conductanceFactorLeft + conductanceFactorRight + conductanceFactorDown);
+
         const currentLeft = conductanceFactorLeft * totalMaxCurrent;
         const currentRight = conductanceFactorRight * totalMaxCurrent;
         const currentTop = conductanceFactorTop * totalMaxCurrent;
@@ -249,12 +259,12 @@ function initialize() {
     recalculate();
 }
 
-function clearDiffs() {
+function clearDiffsForAlgorithm(algorithmIndex) {
     for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
             const cell = matrix[x][y];
             cell.diff = 0;
-            ALGORITHMS.forEach(algo => updateCellDiffElement(cell, algo.index));
+            updateCellDiffElement(cell, algorithmIndex);
         }
     }
 }
@@ -276,9 +286,8 @@ function updateCellDiffElement(cell, algorithmIndex) {
 }
 
 function recalculate() {
-    clearDiffs();
-
     ALGORITHMS.forEach(algo => {
+        clearDiffsForAlgorithm(algo.index);
         algo.run();
         updateDiffElementsForAlgorithm(algo.index);
     });
